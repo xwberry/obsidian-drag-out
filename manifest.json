@@ -1,0 +1,10 @@
+{
+  "id": "drag-out",
+  "name": "Drag Out",
+  "version": "0.1.1",
+  "minAppVersion": "1.5.0",
+  "description": "Drag files from Obsidian's file explorer to other applications (local filesystem, browser uploads, email attachments, etc.) with native OS drag handles instead of obsidian:// URIs.",
+  "author": "Xander Berry",
+  "authorUrl": "https://github.com/xwberry",
+  "isDesktopOnly": true
+}
