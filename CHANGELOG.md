@@ -25,7 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Moved the default behavior suppression to take place after the drag capture
   operations succeed to avoid null behavior.
-- Release script now aborts if either required file (manifest.json, main.js) are missing.
+- Release script now aborts if either required file (manifest.json, main.js) are missing,
+  or if the manifest doesn't have a valid minAppVersion.
 - Drag icon handling no longer assumes `icon.png` is bundled. If no icon file is
   present, the plugin falls back to a tiny embedded native image so external
   drag still has a non-empty icon for macOS.
