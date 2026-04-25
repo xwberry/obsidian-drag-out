@@ -21,6 +21,11 @@ const RELEASE_FILES = ["main.js", "manifest.json", "icon.png"];
 
 // --- 1. Read target version from package.json ------------------------------
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+const minAppVersion = manifest.minAppVersion;
+if (!minAppVersion || typeof minAppVersion !== "string") {
+    console.error("manifest.json has no valid 'minAppVersion'. Aborting.");
+    process.exit(1);
+}
 const version = pkg.version;
 if (!version) {
     console.error("package.json has no 'version' field. Aborting.");
@@ -40,9 +45,9 @@ const versions = JSON.parse(readFileSync("versions.json", "utf8"));
 if (versions[version]) {
     console.log(`  versions.json: entry for ${version} already exists (${versions[version]})`);
 } else {
-    versions[version] = manifest.minAppVersion;
+    versions[version] = minAppVersion;
     writeFileSync("versions.json", JSON.stringify(versions, null, 2) + "\n");
-    console.log(`  versions.json: added ${version} -> ${manifest.minAppVersion}`);
+    console.log(`  versions.json: added ${version} -> ${minAppVersion}`);
 }
 
 // --- 4. Build production ---------------------------------------------------
@@ -93,6 +98,6 @@ Next steps:
   
 Then on GitHub:
   - Draft a new release at tag v${version}
-  - Attach the three files in ${distDir}/ as LOOSE assets (do not zip)
+  - Attach release files from ${distDir}/ as LOOSE assets (main.js, manifest.json, and icon.png if present; do not zip)
   - Publish
 `);
