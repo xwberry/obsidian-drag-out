@@ -7,6 +7,7 @@ import {
     Setting,
 } from "obsidian";
 import type { WebContents, NativeImage } from "electron";
+import { existsSync } from "fs";
 import * as path from "path";
 
 type ModifierKey = "alt" | "shift" | "ctrl" | "none";
@@ -28,6 +29,11 @@ const DEFAULT_SETTINGS: DragOutSettings = {
  * drags from. .nav-file-title is a file, .nav-folder-title is a folder.
  */
 const FILE_TREE_SELECTOR = ".nav-file-title, .nav-folder-title";
+
+// Electron requires a non-empty drag icon on macOS. Keep a tiny fallback so
+// releases still work even when no icon.png is bundled.
+const FALLBACK_ICON_DATA_URL =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
 
 export default class DragOutPlugin extends Plugin {
     settings: DragOutSettings = DEFAULT_SETTINGS;
@@ -69,7 +75,8 @@ export default class DragOutPlugin extends Plugin {
             "plugins",
             this.manifest.id
         );
-        this.iconPath = path.join(pluginDir, "icon.png");
+        const candidateIconPath = path.join(pluginDir, "icon.png");
+        this.iconPath = existsSync(candidateIconPath) ? candidateIconPath : null;
     }
 
     private isModifierPressed(evt: DragEvent): boolean {
@@ -155,15 +162,26 @@ export default class DragOutPlugin extends Plugin {
         files?: string[];
         icon: string | NativeImage;
     } {
-        const electron = this.requireElectron();
-        const icon = this.iconPath
-            ? this.iconPath
-            : electron.nativeImage.createEmpty();
-    
+        const icon = this.getDragIcon();
+
         if (absolutePaths.length === 1) {
             return { file: absolutePaths[0], icon };
         }
         return { file: absolutePaths[0], files: absolutePaths, icon };
+    }
+
+    private getDragIcon(): string | NativeImage {
+        if (this.iconPath) {
+            return this.iconPath;
+        }
+
+        const electron = this.requireElectron();
+        const fallbackIcon =
+            electron.nativeImage.createFromDataURL(FALLBACK_ICON_DATA_URL);
+
+        return fallbackIcon.isEmpty()
+            ? electron.nativeImage.createEmpty()
+            : fallbackIcon;
     }
 
     /**
@@ -286,11 +304,11 @@ class DragOutSettingTab extends PluginSettingTab {
                 "Hold this key while dragging a file from the file explorer " +
                     "to drag the actual file (instead of an obsidian:// link). " +
                     "Pick 'None' to always use external drag — but be aware " +
-                    "this disables Obsidian's built-in drag-to-move-folder behavior on Windows."
+                    "this disables Obsidian's built-in file-tree drag behavior."
             )
             .addDropdown((dd) =>
                 dd
-                    .addOption("ctrl", "Ctrl / Cmd (default Win)")
+                    .addOption("ctrl", "Ctrl / Cmd (default Win/Linux)")
                     .addOption("alt", "Alt / Option (default Mac)")
                     .addOption("shift", "Shift")
                     .addOption("none", "None — always intercept")
