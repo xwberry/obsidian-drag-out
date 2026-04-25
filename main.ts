@@ -130,14 +130,13 @@ export default class DragOutPlugin extends Plugin {
             return;
         }
 
-        // Suppress Obsidian's default behavior (which writes an obsidian:// URI
-        // onto the clipboard / dataTransfer). We're taking over the drag.
-        evt.preventDefault();
-        evt.stopPropagation();
-
         try {
             const dragItem = this.buildDragItem(absolutePaths);
             webContents.startDrag(dragItem);
+            // Suppress Obsidian's default behavior (which writes an obsidian:// URI
+            // onto the clipboard / dataTransfer). We're taking over the drag.
+            evt.preventDefault();
+            evt.stopPropagation();
             this.log("startDrag invoked", absolutePaths);
         } catch (err) {
             console.error("[DragOut] startDrag failed:", err);
@@ -197,15 +196,16 @@ export default class DragOutPlugin extends Plugin {
             return out;
         }
 
-        selectedNodes.forEach((el) => {
-            const rel = el.getAttribute("data-path");
-            if (rel) push(rel);
-        });
+        const selectedRelativePaths = Array.from(selectedNodes)
+            .map((el) => el.getAttribute("data-path"))
+            .filter((rel): rel is string => !!rel);
+        
+        if (!selectedRelativePaths.includes(currentRelative)) {
+            push(currentRelative);
+            return out;
+        }
 
-        // The node that initiated the drag may not have been part of the
-        // selection (e.g. user dragged a non-selected item). Make sure it's
-        // included.
-        push(currentRelative);
+        selectedRelativePaths.forEach(push);
 
         return out;
     }
