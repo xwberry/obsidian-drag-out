@@ -12,21 +12,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - This changelog and license.
 
 ### Changed
-- Default modifier key is now platform-aware. Defaulted option for Win remains 
-  Ctrl; macOS switched to Alt (Option). Note this default switching has not been
-  tested in production. Please report any issues.
-- Changed default behavior when multiple notes are selected: if an unselected
-  note is dragged, only that note is pushed. If one of the multiple selected
-  are dragged, all selected are pushed.
-- Updated README to caveat build from source prerequisites, other consistency updates
+- Default modifier key is now platform-aware: Windows and Linux default to Ctrl,
+  while macOS defaults to Alt/Option.
+- Multi-select drag behavior is now more precise. Dragging a selected item sends
+  all selected items; dragging an unselected item sends only that item.
+- Updated settings copy to describe the current platform defaults and the effect
+  of always intercepting file-tree drags.
+- Reworked the README for a public audience, including current usage defaults,
+  manual install steps, Bun-based build commands, platform notes, and debugging
+  guidance.
 
 ### Fixed
-- Moved the default behavior suppresion to take place after the drag capture
+- Moved the default behavior suppression to take place after the drag capture
   operations succeed to avoid null behavior.
 - Release script now aborts if either required file (manifest.json, main.js) are missing.
+- Drag icon handling no longer assumes `icon.png` is bundled. If no icon file is
+  present, the plugin falls back to a tiny embedded native image so external
+  drag still has a non-empty icon for macOS.
 
 ### Removed
-- Original hand-written main.js test script before running esbuild. 
+- Original hand-written main.js test script before running esbuild.
 
 ## [0.1.1] - 2026-04-25
 
