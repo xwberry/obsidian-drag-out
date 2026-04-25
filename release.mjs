@@ -59,18 +59,27 @@ const distDir = join("dist", version);
 mkdirSync(distDir, { recursive: true });
 
 console.log(`\nStaging release files in ${distDir}/`);
-let missing = [];
+const missingRequired = [];
+const missingOptional = [];
 for (const file of RELEASE_FILES) {
     if (!existsSync(file)) {
-        missing.push(file);
+        if (file === "icon.png") {
+            missingOptional.push(file);
+        } else {
+            missingRequired.push(file);
+        }
         continue;
     }
     copyFileSync(file, join(distDir, file));
     console.log(`  ${file}`);
 }
 
-if (missing.length > 0) {
-    console.warn(`\nWARNING: missing files (skipped): ${missing.join(", ")}`);
+if (missingOptional.length > 0) {
+    console.warn(`\nWARNING: missing optional files (skipped): ${missingOptional.join(", ")}`);
+}
+if (missingRequired.length > 0) {
+    console.error(`\nERROR: missing required release files (aborting): ${missingRequired.join(", ")}`);
+    process.exit(1);
 }
 
 // --- Done ------------------------------------------------------------------
