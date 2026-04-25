@@ -30,11 +30,11 @@ This isn't in the community plugin marketplace yet. To install:
 2. Navigate to `.obsidian/plugins/` (create the `plugins` folder if missing)
 3. Create a folder named `drag-out`
 4. Copy these three files into it:
-   - `main.js`
-   - `manifest.json`
-   - `icon.png`
+  - `main.js`
+  - `manifest.json`
+  - `icon.png`
 5. In Obsidian: **Settings → Community plugins → Installed plugins**, click
-   the refresh icon, then enable **Drag Out**
+  the refresh icon, then enable **Drag Out**
 
 If Restricted Mode is on, Obsidian will prompt you to turn it off first.
 This is expected for any community plugin.
@@ -62,6 +62,10 @@ in settings to always intercept.
 
 ## Building from source
 
+> Note: build scripts rely on Bun, so building from this repo's source as-is  
+> won't work with npm commands. Update scripts in package.json and   
+> release.mjs to accommodate or install Bun.
+
 ```bash
 npm install
 npm run build      # one-shot production build → main.js
@@ -74,25 +78,25 @@ and `icon.png` aren't touched by the build.
 ## Known issues / things to watch for
 
 - **Windows: in-app drop targets break during external drag.** This is a known
-  Electron limitation, not specific to this plugin
-  ([Electron #7118](https://github.com/electron/electron/issues/7118)).
-  It's why the modifier key default exists.
+Electron limitation, not specific to this plugin
+([Electron #7118](https://github.com/electron/electron/issues/7118)).
+It's why the modifier key default exists.
 - **Drag image is static.** It's the bundled `icon.png`. Eventually it
-  could render the actual file's icon, but that's more code than v0.1
-  warrants.
+could render the actual file's icon, but that's more code than v0.1
+warrants.
 - **Folders.** Dragging a folder *should* work (Electron's `startDrag` accepts
-  folder paths) but is less tested than file drag.
+folder paths) but is less tested than file drag.
 - **Mobile.** Plugin is `isDesktopOnly: true` and won't load on iOS / Android.
 - **Symlinks / OneDrive virtual files.** If a vault file is an unhydrated
-  cloud placeholder, the OS will try to download it during the drag, which
-  may add a delay.
+cloud placeholder, the OS will try to download it during the drag, which
+may add a delay.
 
 ## Debugging
 
 Enable **Debug logging** in the plugin settings, then open the developer
 console (Ctrl+Shift+I) and try a drag. You should see entries like:
 
-```
+```text
 [DragOut] startDrag invoked ['C:\Users\you\Vault\Unsorted\note.md']
 ```
 
