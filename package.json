@@ -1,0 +1,24 @@
+{
+  "name": "obsidian-drag-out",
+  "version": "0.1.1",
+  "description": "Drag files from Obsidian's file explorer to other applications (local filesystem, browser uploads, email attachments, etc.) with native OS drag handles instead of obsidian:// URIs.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && bun esbuild.config.mjs production",
+    "release": "bun release.mjs"
+  },
+  "keywords": ["obsidian", "plugin", "drag-and-drop"],
+  "author": "Xander Berry",
+  "authorUrl": "https://github.com/xwberry",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "builtin-modules": "3.3.0",
+    "electron": "^39.0.0",
+    "esbuild": "0.24.0",
+    "obsidian": "^1.4.11",
+    "tslib": "2.7.0",
+    "typescript": "5.5.4"
+  }
+}
