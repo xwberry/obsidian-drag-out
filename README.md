@@ -1,108 +1,115 @@
-# Drag Out — Obsidian Plugin
+# Drag Out
 
-Lets you drag files out of Obsidian's file explorer to other apps (browser
-upload fields, email clients, Claude/ChatGPT, system file manager, etc.) using
-the OS's native drag-and-drop, instead of getting an unhelpful `obsidian://`
-URL when you drop.
+Drag files from Obsidian's file explorer to other apps using native OS
+drag-and-drop instead of dropping an `obsidian://` URL.
 
-**Status:** experimental v0.1. Desktop-only.
+This is useful for browser upload fields, email attachments, chat apps, file
+managers, and other places that expect an actual file from your filesystem.
 
----
+**Status:** experimental, desktop only. Tested primarily on Windows so far;
+macOS and Linux feedback is welcome.
 
-## What problem this solves
+## What It Does
 
-Obsidian's file tree is a virtual UI element — when you drag a file out of it,
-the OS only sees a string like `obsidian://open?vault=Foo&file=bar.md`. Most
-external apps either ignore that or treat it as text, so you can't actually
-upload the file. The official workaround is right-click → "Show in system
-explorer" → drag from File Explorer / Finder. That works, but it's three
-steps too many when you do it dozens of times a day.
+Obsidian's file tree is a virtual UI. By default, dragging a note out of the
+file tree gives other apps a link like `obsidian://open?vault=Vault&file=Note.md`
+instead of the file itself.
 
-This plugin intercepts drags from the file tree and uses Electron's
-`webContents.startDrag` API to expose the real on-disk path, so the OS
-treats the dragged item like any other file.
+Drag Out intercepts file-tree drags when your configured modifier key is held
+and uses Electron's `webContents.startDrag` API to expose the real on-disk file
+path. Normal Obsidian drag behavior is left alone when the modifier is not held.
 
-## Install (manual, for testing)
+## Installation
 
-This isn't in the community plugin marketplace yet. To install:
+Drag Out is not in the Obsidian community plugin marketplace yet. To install it
+manually:
 
-1. Open your vault folder in File Explorer
-2. Navigate to `.obsidian/plugins/` (create the `plugins` folder if missing)
-3. Create a folder named `drag-out`
-4. Copy these three files into it:
-  - `main.js`
-  - `manifest.json`
-  - `icon.png`
-5. In Obsidian: **Settings → Community plugins → Installed plugins**, click
-  the refresh icon, then enable **Drag Out**
+1. Download the release assets: `main.js` and `manifest.json`. If the release
+   includes `icon.png`, download that too.
+2. Open your vault folder.
+3. Create this folder if it does not already exist:
 
-If Restricted Mode is on, Obsidian will prompt you to turn it off first.
-This is expected for any community plugin.
-
-## Use
-
-1. Hold **Alt** (or **Option** on Mac)
-2. Drag a file from Obsidian's left sidebar file tree to wherever you want it
-3. Release
-
-Without the modifier, Obsidian's normal drag behavior is unchanged. The
-modifier key is configurable in the plugin's settings tab.
-
-Multi-select drag works: Ctrl/Cmd-click multiple files first, then Alt-drag
-any one of them. All selected files come along.
-
-## Why a modifier key?
-
-Calling `startDrag` takes over the drag from Obsidian, which means
-Obsidian's own drag features (move file to another folder by dropping it
-on the folder, etc.) won't work *during* an external drag. By gating it
-on a modifier key, normal drags still work the way you expect. If you don't
-care about Obsidian's internal drag-and-drop, set the modifier to "None"
-in settings to always intercept.
-
-## Building from source
-
-> Note: build scripts rely on Bun, so building from this repo's source as-is  
-> won't work with npm commands. Update scripts in package.json and   
-> release.mjs to accommodate or install Bun.
-
-```bash
-npm install
-npm run build      # one-shot production build → main.js
-npm run dev        # watch mode for development
+```text
+.obsidian/plugins/drag-out/
 ```
 
-The build expects `main.ts`, produces `main.js` next to it. `manifest.json`
-and `icon.png` aren't touched by the build.
+4. Put the downloaded files in that folder.
+5. In Obsidian, go to **Settings > Community plugins > Installed plugins**,
+   refresh the plugin list, and enable **Drag Out**.
 
-## Known issues / things to watch for
+If Restricted Mode is on, Obsidian will ask you to turn it off before enabling
+community plugins.
 
-- **Windows: in-app drop targets break during external drag.** This is a known
-Electron limitation, not specific to this plugin
-([Electron #7118](https://github.com/electron/electron/issues/7118)).
-It's why the modifier key default exists.
-- **Drag image is static.** It's the bundled `icon.png`. Eventually it
-could render the actual file's icon, but that's more code than v0.1
-warrants.
-- **Folders.** Dragging a folder *should* work (Electron's `startDrag` accepts
-folder paths) but is less tested than file drag.
-- **Mobile.** Plugin is `isDesktopOnly: true` and won't load on iOS / Android.
-- **Symlinks / OneDrive virtual files.** If a vault file is an unhydrated
-cloud placeholder, the OS will try to download it during the drag, which
-may add a delay.
+## Usage
+
+Hold the modifier key while dragging a file or folder from Obsidian's left
+sidebar file explorer to another app.
+
+The default modifier is:
+
+- **Ctrl** on Windows and Linux
+- **Option / Alt** on macOS
+
+You can change the modifier in **Settings > Drag Out**. Available options are
+Ctrl/Cmd, Alt/Option, Shift, or None.
+
+Multi-select is supported: select multiple files in Obsidian's file explorer,
+then modifier-drag one of the selected files. If you drag an unselected file
+while other files are selected, only the file you dragged is sent.
+
+## Why A Modifier Key?
+
+Electron's external drag API takes over the current drag operation. That means
+Obsidian's own file-tree drag behavior, such as moving notes between folders,
+cannot run during the same drag.
+
+Using a modifier keeps normal Obsidian drags unchanged. If you always want file
+drags to go to external apps, set the modifier to **None** in the plugin
+settings.
+
+## Platform Notes
+
+- **Windows:** tested most heavily. Holding the modifier while dragging starts
+  an external file drag, so Obsidian's internal drop targets will not respond
+  during that drag. This is related to Electron's external drag behavior
+  ([Electron #7118](https://github.com/electron/electron/issues/7118)).
+- **macOS:** expected to work, but needs more real-world testing. The default
+  modifier is Option/Alt to avoid conflicting with common Cmd interactions.
+- **Linux:** expected to work where Obsidian's Electron drag API is available,
+  but currently less tested than Windows.
+- **Mobile:** not supported. The plugin is marked `isDesktopOnly`.
+- **Cloud placeholders:** files that are not hydrated locally yet, such as
+  OneDrive placeholders, may need to download before the target app can use
+  them.
+
+## Building From Source
+
+This repo uses Bun for its scripts.
+
+```bash
+bun install
+bun run build
+```
+
+For development watch mode:
+
+```bash
+bun run dev
+```
+
+The build reads `main.ts` and writes the bundled plugin entrypoint to
+`main.js`. `manifest.json` is maintained separately.
 
 ## Debugging
 
-Enable **Debug logging** in the plugin settings, then open the developer
-console (Ctrl+Shift+I) and try a drag. You should see entries like:
+Enable **Debug logging** in the plugin settings, then open Obsidian's developer
+console with `Ctrl+Shift+I` and try a drag. A successful external drag logs
+the resolved filesystem paths.
 
-```text
-[DragOut] startDrag invoked ['C:\Users\you\Vault\Unsorted\note.md']
-```
-
-If you see `Could not access Electron's webContents`, the API access path
-is broken — please report which Obsidian version you're on.
+If you see `Drag Out: could not access Electron's webContents`, please report
+your Obsidian version, operating system, and whether you installed from a
+release or built from source.
 
 ## License
 
-MIT.
+MIT
