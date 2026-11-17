@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- macOS drops into Finder and browser upload fields. Hold Option through the
+  drop. Option is the copy modifier, and Electron's external drag only offers
+  a copy.
+- Cmd is not a working macOS modifier. The drag starts, then Finder shows a
+  blocked cursor and a browser upload detects the file without accepting it.
+  Cmd means "make alias."
+- Control is not a working macOS modifier. Control-click opens the file menu,
+  so the drag never starts.
+- Empty drag icons no longer cancel Obsidian's own drag. `startDrag` returns
+  without throwing when the icon is empty. The plugin now writes a small PNG
+  and passes that path. A missing file falls through the same way.
+
+### Changed
+- Default modifier remains Ctrl on Windows and Linux, and Option on macOS.
+  Settings text names the keys that complete a drop.
+
 ## [0.1.2] - 2026-04-25
 ### Added
 - This changelog and license.

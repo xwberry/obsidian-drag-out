@@ -6,8 +6,8 @@ drag-and-drop instead of dropping an `obsidian://` URL.
 This is useful for browser upload fields, email attachments, chat apps, file
 managers, and other places that expect an actual file from your filesystem.
 
-**Status:** experimental, desktop only. Tested primarily on Windows so far;
-macOS and Linux feedback is welcome.
+**Status:** experimental, desktop only. Tested on Windows and macOS. Linux
+feedback is welcome.
 
 ## What It Does
 
@@ -42,20 +42,31 @@ community plugins.
 
 ## Usage
 
-Hold the modifier key while dragging a file or folder from Obsidian's left
-sidebar file explorer to another app.
+Hold the modifier key for the whole drag, including the drop.
 
 The default modifier is:
 
 - **Ctrl** on Windows and Linux
-- **Option / Alt** on macOS
+- **Option** on macOS
 
-You can change the modifier in **Settings > Drag Out**. Available options are
-Ctrl/Cmd, Alt/Option, Shift, or None.
+Those are the copy modifiers. Electron's external drag only offers a copy, so
+the key has to mean copy or the target refuses the file.
 
-Multi-select is supported: select multiple files in Obsidian's file explorer,
-then modifier-drag one of the selected files. If you drag an unselected file
-while other files are selected, only the file you dragged is sent.
+On macOS, the other keys do not complete the drop:
+
+- **Cmd** starts a drag, then Finder shows a blocked cursor. Browser upload
+  fields detect a file and do not accept it. Cmd means "make alias."
+- **Control** opens the file menu. The drag never starts.
+- **Shift** is the file explorer's range-select key.
+
+**Settings > Drag Out** still lists Ctrl, Option, Cmd, Shift, and None. Pick
+**None** only if every file-tree drag should leave Obsidian. That disables
+moving notes between folders inside the vault.
+
+Multi-select is supported: select multiple files in the file explorer, then
+modifier-drag one of the selected files. If you drag an unselected file while
+other files are selected, only the file you dragged is sent. Option-click also
+toggles multi-select, so the selection can change as the drag starts.
 
 ## Why A Modifier Key?
 
@@ -73,8 +84,10 @@ settings.
   an external file drag, so Obsidian's internal drop targets will not respond
   during that drag. This is related to Electron's external drag behavior
   ([Electron #7118](https://github.com/electron/electron/issues/7118)).
-- **macOS:** expected to work, but needs more real-world testing. The default
-  modifier is Option/Alt to avoid conflicting with common Cmd interactions.
+- **macOS:** tested with Option held through the drop, into Finder and into
+  browser upload fields. The drag icon is a small PNG written before
+  `startDrag`. An empty icon makes that call return without dragging, so the
+  plugin leaves Obsidian's own drag alone in that case.
 - **Linux:** expected to work where Obsidian's Electron drag API is available,
   but currently less tested than Windows.
 - **Mobile:** not supported. The plugin is marked `isDesktopOnly`.
@@ -103,8 +116,8 @@ The build reads `main.ts` and writes the bundled plugin entrypoint to
 ## Debugging
 
 Enable **Debug logging** in the plugin settings, then open Obsidian's developer
-console with `Ctrl+Shift+I` and try a drag. A successful external drag logs
-the resolved filesystem paths.
+console (`Ctrl+Shift+I` on Windows and Linux, `Cmd+Option+I` on macOS) and try
+a drag. A successful external drag logs the resolved filesystem paths.
 
 If you see `Drag Out: could not access Electron's webContents`, please report
 your Obsidian version, operating system, and whether you installed from a

@@ -6,11 +6,12 @@ import {
     PluginSettingTab,
     Setting,
 } from "obsidian";
-import type { WebContents, NativeImage } from "electron";
-import { existsSync } from "fs";
+import type { WebContents } from "electron";
+import { existsSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
 import * as path from "path";
 
-type ModifierKey = "alt" | "shift" | "ctrl" | "none";
+type ModifierKey = "alt" | "shift" | "ctrl" | "meta" | "none";
 
 interface ElectronRemoteLike {
     getCurrentWebContents?: () => WebContents;
@@ -32,6 +33,8 @@ interface DragOutSettings {
 }
 
 const DEFAULT_SETTINGS: DragOutSettings = {
+    // Option is the macOS copy modifier. Cmd asks Finder for an alias, which
+    // startDrag does not offer, so the drop is refused while Cmd is held.
     modifierKey: process.platform === "darwin" ? "alt" : "ctrl",
     debugLogging: false,
 };
@@ -42,16 +45,19 @@ const DEFAULT_SETTINGS: DragOutSettings = {
  */
 const FILE_TREE_SELECTOR = ".nav-file-title, .nav-folder-title";
 
-// Electron requires a non-empty drag icon on macOS. Keep a tiny fallback so
-// releases still work even when no icon.png is bundled.
+const DRAG_ICON_SIZE = 32;
+
+// Opaque fallback. An empty image makes startDrag return without dragging,
+// and macOS is the platform that enforces that.
 const FALLBACK_ICON_DATA_URL =
-    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAGUlEQVR42mOwsrL6TwlmGDVg1IBRA4aLAQB3iq0QgO3WlgAAAABJRU5ErkJggg==";
 
 function isModifierKey(value: unknown): value is ModifierKey {
     return (
         value === "alt" ||
         value === "shift" ||
         value === "ctrl" ||
+        value === "meta" ||
         value === "none"
     );
 }
@@ -73,6 +79,7 @@ function isDragOutSettings(value: unknown): value is Partial<DragOutSettings> {
 export default class DragOutPlugin extends Plugin {
     settings: DragOutSettings = DEFAULT_SETTINGS;
     private iconPath: string | null = null;
+    private dragIconPath: string | null = null;
 
     async onload() {
         await this.loadSettings();
@@ -121,8 +128,9 @@ export default class DragOutPlugin extends Plugin {
             case "shift":
                 return evt.shiftKey;
             case "ctrl":
-                // Ctrl on Windows/Linux, Cmd on Mac
-                return evt.ctrlKey || evt.metaKey;
+                return evt.ctrlKey;
+            case "meta":
+                return evt.metaKey;
             case "none":
                 return true;
         }
@@ -149,12 +157,10 @@ export default class DragOutPlugin extends Plugin {
             // Not a desktop / FS-backed vault. Nothing we can do.
             return;
         }
-        const basePath = adapter.getBasePath();
-
         // Collect all selected paths in case of multi-select drag.
         const absolutePaths = this.collectSelectedAbsolutePaths(
             relativePath,
-            basePath
+            adapter
         );
 
         if (absolutePaths.length === 0) {
@@ -173,7 +179,14 @@ export default class DragOutPlugin extends Plugin {
         }
 
         try {
-            const dragItem = this.buildDragItem(absolutePaths);
+            const icon = this.getDragIcon();
+            if (!icon) {
+                // startDrag returns without throwing when the icon is empty,
+                // which would also cancel Obsidian's own drag below.
+                this.log("drag icon is empty, falling through to default drag");
+                return;
+            }
+            const dragItem = this.buildDragItem(absolutePaths, icon);
             webContents.startDrag(dragItem);
             // Suppress Obsidian's default behavior (which writes an obsidian:// URI
             // onto the clipboard / dataTransfer). We're taking over the drag.
@@ -190,33 +203,74 @@ export default class DragOutPlugin extends Plugin {
      * Build the argument object passed to webContents.startDrag.
      * - Single path: pass `file`.
      * - Multiple paths: pass `files` (overrides `file`).
-     * - `icon` is required and must be non-empty on macOS.
+     * - `icon` is a filesystem path. Electron loads it in the main process.
      */
-    private buildDragItem(absolutePaths: string[]): {
+    private buildDragItem(
+        absolutePaths: string[],
+        icon: string
+    ): {
         file: string;
         files?: string[];
-        icon: string | NativeImage;
+        icon: string;
     } {
-        const icon = this.getDragIcon();
-
         if (absolutePaths.length === 1) {
             return { file: absolutePaths[0], icon };
         }
         return { file: absolutePaths[0], files: absolutePaths, icon };
     }
 
-    private getDragIcon(): string | NativeImage {
-        if (this.iconPath) {
-            return this.iconPath;
+    /**
+     * Write a small non-empty PNG and return its path.
+     * A NativeImage passed through Obsidian's remote shim can arrive empty.
+     * Electron then skips the drag and does not throw.
+     */
+    private getDragIcon(): string | null {
+        if (this.dragIconPath && existsSync(this.dragIconPath)) {
+            return this.dragIconPath;
         }
 
         const electron = this.requireElectron();
-        const fallbackIcon =
-            electron.nativeImage.createFromDataURL(FALLBACK_ICON_DATA_URL);
+        const fromFile = this.iconPath
+            ? electron.nativeImage.createFromPath(this.iconPath)
+            : null;
+        const image =
+            fromFile && !fromFile.isEmpty()
+                ? fromFile
+                : electron.nativeImage.createFromDataURL(FALLBACK_ICON_DATA_URL);
+        if (image.isEmpty()) {
+            return null;
+        }
 
-        return fallbackIcon.isEmpty()
-            ? electron.nativeImage.createEmpty()
-            : fallbackIcon;
+        const sized = image.resize({
+            width: DRAG_ICON_SIZE,
+            height: DRAG_ICON_SIZE,
+        });
+        if (sized.isEmpty()) {
+            return null;
+        }
+
+        const iconFile = path.join(
+            tmpdir(),
+            `obsidian-drag-out-${this.manifest.id}.png`
+        );
+        writeFileSync(iconFile, sized.toPNG());
+        if (
+            !existsSync(iconFile) ||
+            electron.nativeImage.createFromPath(iconFile).isEmpty()
+        ) {
+            return null;
+        }
+
+        this.dragIconPath = iconFile;
+        return iconFile;
+    }
+
+    private resolveAbsolutePath(
+        adapter: FileSystemAdapter,
+        relativePath: string
+    ): string | null {
+        const absolutePath = adapter.getFullPath(relativePath);
+        return existsSync(absolutePath) ? absolutePath : null;
     }
 
     /**
@@ -227,7 +281,7 @@ export default class DragOutPlugin extends Plugin {
      */
     private collectSelectedAbsolutePaths(
         currentRelative: string,
-        basePath: string
+        adapter: FileSystemAdapter
     ): string[] {
         const selectedNodes = activeDocument.querySelectorAll(
             ".nav-file-title.is-selected, .nav-folder-title.is-selected"
@@ -237,11 +291,12 @@ export default class DragOutPlugin extends Plugin {
         const out: string[] = [];
 
         const push = (rel: string) => {
-            const abs = path.join(basePath, rel);
-            if (!seen.has(abs)) {
-                seen.add(abs);
-                out.push(abs);
+            const abs = this.resolveAbsolutePath(adapter, rel);
+            if (!abs || seen.has(abs)) {
+                return;
             }
+            seen.add(abs);
+            out.push(abs);
         };
 
         if (selectedNodes.length === 0) {
@@ -340,13 +395,17 @@ class DragOutSettingTab extends PluginSettingTab {
             .setDesc(
                 "Hold this key while dragging a file from the file explorer " +
                     "to drag the actual file (instead of an obsidian:// link). " +
+                    "The default is Ctrl on Windows and Linux, and Option on macOS. " +
+                    "Hold it through the drop. On macOS, Cmd asks Finder for an alias " +
+                    "and the drop is refused. Control-click opens the file menu. " +
                     "Pick 'None' to always use external drag — but be aware " +
                     "this disables Obsidian's built-in file-tree drag behavior."
             )
             .addDropdown((dd) =>
                 dd
-                    .addOption("ctrl", "Ctrl/cmd (default on Windows/Linux)")
+                    .addOption("ctrl", "Ctrl (default on Windows/Linux)")
                     .addOption("alt", "Alt/option (default on macOS)")
+                    .addOption("meta", "Cmd")
                     .addOption("shift", "Shift")
                     .addOption("none", "None — always intercept")
                     .setValue(this.plugin.settings.modifierKey)
